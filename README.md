@@ -1,7 +1,7 @@
 # Covid-19 Cases and Deaths Forecasting
 _Time series Analysis_
 
-The objective of this study to predict number of Covid-19 cases and deaths for India and USA respectively and to find out if the number of deaths are related to the Covid-19 cases. Also, I tried to find the relationship between the covid-19 cases in India and USA.
+The objective of this study to predict number of Covid-19 cases and deaths for India and USA respectively and to find out if the number of deaths are related to the Covid-19 cases. Also, I tried to find the relationship between the covid-19 cases in India and USA. Please check out my [Rpubs](https://rpubs.com/Ruchil/770013) for entire code.
 
 ## Summary
 
