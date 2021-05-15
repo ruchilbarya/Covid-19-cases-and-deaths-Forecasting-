@@ -1,0 +1,512 @@
+---
+title: "Research Project ANLY 565"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Libraries
+```{r}
+library(vars)
+library(nlme)
+library(zoo)
+library(readxl)
+library(data.table)
+library(tseries)
+library(forecast)
+
+```
+
+#Data Screening 
+```{r}
+setwd("C:/Users/Gautam/OneDrive/Ruchil/565/R_script")
+
+covid19_india <- read_excel("covid19_india.xlsx")
+covid19_us <- read_excel("covid19_us.xlsx")
+covid19_us$date <- as.Date(covid19_us$date)
+covid19_india$date <- as.Date(covid19_india$date)
+
+
+head(covid19_india)
+head(covid19_us)
+
+
+diff(range(covid19_us$date))
+diff(range(covid19_india$date))
+
+range(covid19_us$date)
+range(covid19_india$date)
+
+
+
+
+
+###plot for positive cases 
+
+par(lwd = 1, cex = 0.8, las = 1)
+plot(cases ~ date,covid19_us,type = 'o', pch = 19,ylab='Positive cases',xlab='Months',
+     main = 'Covid 19 cases in US till 19th July')
+
+par(lwd = 1, cex = 0.8, las = 1)
+plot(cases ~ date,covid19_india,type = 'o', pch = 19,
+    ylab='Positive cases',xlab='Months',
+     main= 'Covid-19 cases in India till 19th July')
+
+
+
+###plot for deaths 
+par(lwd = 1, cex = 0.8, las = 1)
+plot(death ~ date,covid19_us,type = 'o', pch = 19,ylab='Deaths',xlab='Months',
+     main = 'Deaths due to Covid-19 in US till 19th July')
+
+
+par(lwd = 1, cex = 0.8, las = 1)
+plot(death ~ date,covid19_india,type = 'o', pch = 19,ylab='Deaths',xlab='Months',
+     main = 'Deaths due to Covid-19 in India till 19th July')
+```
+
+
+
+# Time series 
+```{r}
+
+usz <- zoo(
+  covid19_us[,-1],
+  covid19_us$date  
+)
+
+
+
+
+inz <- zoo(
+  covid19_india[,-1], 
+  covid19_india$date  
+)
+
+
+
+### setting the start date as 
+
+start <- as.Date('2020-03-16')
+newus <- usz[time(usz) >= start]
+newin <- inz[time(inz) >= start]
+
+#Time series
+usts <- ts(newus,start = 11,freq = 7)
+ints <- ts(newin,start = 11,freq = 7)
+plot(usts, main = 'Time Series plot for USA covid-19 cases and deaths', xlab = 'week')
+plot(ints, main = 'Time Series plot for INDIA covid-19 cases and deaths', xlab = 'week')
+
+```
+
+
+
+# SEASONAL TIME DECOMPOSITION
+```{r}
+decom.uscases  <- decompose(usts[,1])
+decom.usdeath  <- decompose(usts[,2])
+decom.incases  <- decompose(ints[,1])
+decom.indeath  <- decompose(ints[,2])
+plot(decom.uscases)
+plot(decom.usdeath)
+plot(decom.incases)
+plot(decom.indeath)
+
+uscasesrand <- na.omit(decom.uscases$random)
+usdeathrand <- na.omit(decom.usdeath$random)
+incasesrand <- na.omit(decom.incases$random)
+indeathrand <- na.omit(decom.indeath$random)
+
+ccf(uscasesrand,incasesrand)
+ccf(uscasesrand,usdeathrand)
+ccf(incasesrand,indeathrand)
+
+
+
+plot(aggregate(usts))
+plot(aggregate(ints))
+
+#for both india and US the direction of the commulative plot is increasing so the deaths and cases will increase 
+```
+
+# Type of Series - Stationary or non Stationary ?
+```{r}
+
+casesus  <- usts[,1]#non stationary
+deathus <- usts[,2]#non stationary
+casesin <- ints[,1]#non stationary
+deathin <- ints[,2]#stationary
+
+adf.test(casesus)$p.value
+adf.test(deathus)$p.value
+adf.test(casesin)$p.value
+adf.test(deathin)$p.value
+
+acf(casesus)
+acf(diff(casesus))
+pacf(casesus)
+
+acf(deathus)
+acf(diff(deathus))
+pacf(deathus)
+
+acf(casesin)
+acf(diff(casesin))
+pacf(casesin)
+
+acf(deathin)
+acf(diff(deathin))
+pacf(deathin)
+
+
+```
+
+
+
+#making all series stationary
+```{r}
+casesusd <- log(casesus)
+deathusd <- diff((deathus))
+casesind <- log((casesin))
+plot(casesusd)
+plot(deathusd)
+plot(casesind)
+
+acf(casesusd)
+pacf(casesusd)
+
+acf(deathusd)
+pacf(deathusd)
+
+acf(casesind)
+pacf(casesind)
+
+adf.test(casesusd)$p.value
+adf.test(deathusd)$p.value
+adf.test(casesind)$p.value
+
+
+
+
+
+
+
+```
+
+#US cases 
+
+```{r}
+casesusd <- log(casesus)
+
+Time <- time(casesusd)
+Seas<- factor(cycle(casesusd))
+
+casesusd.lm <-lm(casesusd ~ 0+Time + I(Time^2)+I(Time^3)+I(Time^4)+Seas)
+summary(casesusd.lm)
+acf(resid(casesusd.lm))[1]
+pacf(resid(casesusd.lm))
+new.Time <- seq(28, len = 7, by = 1/7)
+new.Seas <- c(1,2,3,4,5,6,7)
+new.data <- data.frame(Time=new.Time,Seas=factor(new.Seas))
+predus.lm <- exp(predict(casesusd.lm,new.data)[1:7])
+predus.lm
+uscases.gls <- gls(casesusd ~Time+I(Time^2) + I(Time^3)+I(Time^4) +Seas, cor = corAR1(0.569))
+summary(uscases.gls)
+acf(resid(uscases.gls))[1]
+pacf(resid(uscases.gls))
+predglsusc <- exp(predict(uscases.gls,new.data))
+predglsusc
+
+AIC(uscases.gls)
+AIC(casesusd.lm)
+
+
+
+get.best.arima <- function(x.ts, maxord = c(1,1,1,1,1,1))
+{
+  best.aic <- 1e8
+  n <- length(x.ts)
+  for (p in 0:maxord[1]) for(d in 0:maxord[2]) for(q in 0:maxord[3])
+    for (P in 0:maxord[4]) for(D in 0:maxord[5]) for(Q in 0:maxord[6])
+    {
+      fit <- arima(x.ts, order = c(p,d,q),
+                   seas = list(order = c(P,D,Q),
+                               frequency(x.ts)), method = "CSS")
+      fit.aic <- -2 * fit$loglik + (log(n) + 1) * length(fit$coef)
+      if (fit.aic < best.aic)
+      {
+        best.aic <- fit.aic
+        best.fit <- fit
+        best.model <- c(p,d,q,P,D,Q)
+      }
+    }
+  list(best.aic, best.fit, best.model)
+}
+
+
+us.cases.arima <- get.best.arima(resid(uscases.gls), maxord = c(2,2,2,2,2,2))
+us.cases.arima
+
+
+us.cases.pred <-predict(us.cases.arima[[2]],n.ahead=7)
+acf(us.cases.arima[[2]]$residuals)
+pacf(us.cases.arima[[2]]$residuals)
+us.cases.pred <- us.cases.pred$pred
+us.cases.pred <- exp(us.cases.pred)
+
+
+
+preduscaseslm <- ts(c(predus.lm+us.cases.pred),start=28,frequency=7)
+preduscaseslm
+
+actualuscases <- ts(c(58465,62879,65382,70953,77233,65180,63907),start=28,frequency=7)
+
+ts.plot(actualuscases,preduscaseslm,col=c("red","blue"),lty = 1:2,ylab= 'Positive cases',main='Prediction of US covid-19 cases from 13th to 19th July 2020 ')
+
+ts.plot(cbind(window(casesus, start = 10), preduscaseslm),col=c("red","blue"), lty = 1:2,ylab= 'Positive covid-19 cases',main='US covid-19 cases from 16th Mar to 19th July 2020 ',xlab='weeks')
+
+mpe <- function(actual,predict){
+  mpe <- mean(abs((actual - predict)/actual))*100
+  return (mpe)
+}
+
+mpe(actualuscases,preduscaseslm)
+
+
+```
+
+
+
+#Deaths in USA
+```{r}
+
+deathusd <- diff(deathus)
+casesusdi <- diff(casesus)
+ustsnew <- ts(cbind(deathusd,casesusdi),start = 11,freq = 7)
+usnewcc <- na.omit(ustsnew)
+ddeath.us <- usnewcc[,1]
+casesd.us <- usnewcc[,2]
+#time(ddeath.us) last time = 27.71429 net will be 27.85714
+
+po.test(cbind(ddeath.us,casesd.us))
+
+
+
+cases.deathus.vars <- VAR(cbind(ddeath.us, casesd.us), p = 3, type = "trend")
+summary(cases.deathus.vars)
+acf(cases.deathus.vars$varresult$ddeath.us$residuals)
+
+acf(cases.deathus.vars$varresult$casesd.us$residuals)
+
+cases.deathus.vars.pred <- predict(cases.deathus.vars, n.ahead = 9)
+
+ddeath.us.pred <- ts(cases.deathus.vars.pred$fcst$ddeath.us[, 1], st = 27.85714, fr = 7)
+casesd.us.pred <- ts(cases.deathus.vars.pred$fcst$casesd.us[, 1], st = 27.85714, fr = 7)
+
+AIC(cases.deathus.vars)
+
+uscasesprednew  <- ts(c(
+63007-578.47924 , 63007-578.47924+1514.30655,63007-578.47924+1514.30655+ 1944.75540 ,63007-578.47924+1514.30655+1944.75540+2127.31979,63007-578.47924+1514.30655+1944.75540+2127.31979+ 1467.71600,63007-578.47924+1514.30655+1944.75540+2127.31979+ 1467.71600 +213.01904 , 63007-578.47924+1514.30655+1944.75540+2127.31979+ 1467.71600+213.01904+ 52.94763,463.59088+63007-578.47924+1514.30655+1944.75540+2127.31979+ 1467.71600+213.01904+ 52.94763),start=27.85714,fr=7)
+
+
+actualuscases12 <- ts(c(60978
+,58465,62879,65382,70953,77233,65180,63907),start=27.85714,frequency=7)
+
+ts.plot(actualuscases12,uscasesprednew,col=c("red","blue"),lty = 1:2,ylab= 'Positive cases',main='US covid-19 cases from 12 July to 19th July 2020 by vars() ')
+
+usdeathprednew <- ts(c(374.8731,690.7686,793.9434,785.4235,671.5968, 604.9877,544.9384),start=28,frequency=7)
+
+actualusdeath12 <- ts(c(327,736,1021,979,966,823,420),start=28,frequency=7)
+
+ts.plot(actualusdeath12,usdeathprednew,col=c("red","blue"),lty = 1:2,ylab= 'Deaths',main='US deaths from 13 July to 19th July 2020 ')
+
+ts.plot(cbind(deathus, usdeathprednew),col=c("red","blue"), lty = 1:2,ylab= 'Deaths',main='US covid-19 cases from 16th Mar to 19th July 2020 ',xlab='Week')
+
+mpe(actualusdeath12,usdeathprednew)
+
+```
+
+
+#india cases
+```{r}
+
+casesind <- log((casesin))
+
+Time <- time(casesind)
+Seas<- factor(cycle(casesind))
+
+casesind.lm <-lm(casesind ~ 0+Time + I(Time^2)+I(Time^3)+I(Time^4)+Seas)
+summary(casesind.lm)
+acf(resid(casesind.lm))[1]
+pacf(resid(casesind.lm))
+new.Time <- seq(28, len = 7, by = 1/7)
+new.Seas <- c(1,2,3,4,5,6,7)
+new.data <- data.frame(Time=new.Time,Seas=factor(new.Seas))
+predin.lm <- exp(predict(casesind.lm,new.data))
+predin.lm
+
+AIC(casesind.lm)
+
+in.cases.arima <- get.best.arima(resid(casesind.lm), maxord = c(2,2,2,2,2,2))
+in.cases.arima
+
+
+in.cases.pred <-predict(in.cases.arima[[2]],n.ahead=7)
+acf(in.cases.arima[[2]]$residuals)
+pacf(in.cases.arima[[2]]$residuals)
+in.cases.pred <- in.cases.pred$pred
+in.cases.pred <- exp(in.cases.pred)
+
+predincaseslm <- ts(c(predin.lm+in.cases.pred),start=28,frequency=7)
+predincaseslm
+
+actualincases <- ts(c(28498,29429,32695,34956,34884,38902,40425),start=28,frequency=7)
+
+ts.plot(actualincases,predincaseslm,col=c("red","blue"),lty = 1:2,ylab= 'Positive cases',main='INDIA covid-19 cases from 13th to 19th July 2020 ')
+
+ts.plot(cbind(window(casesin, start = 11), predincaseslm),col=c("red","blue"), lty = 1:2,ylab= 'Positive covid-19 cases',main='INDIA covid-19 cases from 16th Mar to 19th July 2020 ',xlab='weeks')
+
+mpe(actualincases,predincaseslm)
+
+```
+
+
+
+#Deaths in India 
+```{r}
+
+deathind <- diff(deathin)
+casesindi <- diff(casesin)
+intsnew <- ts(cbind(deathind,casesindi),start = 11,freq = 7)
+innewcc <- na.omit(intsnew)
+ddeath.in <- innewcc[,1]
+casesd.in <- innewcc[,2]
+#time(ddeath.in) last time = 27.71429 net will be 27.85714
+
+po.test(cbind(ddeath.in,casesd.in))
+
+
+
+cases.deathin.vars <- VAR(cbind(ddeath.in, casesd.in), p = 3, type = "trend")
+summary(cases.deathin.vars)
+AIC(cases.deathin.vars)
+
+acf(cases.deathin.vars$varresult$ddeath.in$residuals)
+acf(cases.deathin.vars$varresult$casesd.in$residuals)
+cases.deathin.vars.pred <- predict(cases.deathin.vars,8)
+
+ddeath.in.pred <- ts(cases.deathin.vars.pred$fcst$ddeath.in[, 1], st = 27.85714, fr = 7)
+casesd.in.pred <- ts(cases.deathin.vars.pred$fcst$casesd.in[, 1], st = 27.85714, fr = 7)
+
+incasesprednew  <- ts(c(29108+299.9249+236.0146,29108+299.9249+236.0146+595.2179,29108+299.9249+236.0146+679.0945+595.2179,29108+299.9249+236.0146+679.0945+595.2179+647.5364,29108+299.9249+236.0146+679.0945+595.2179+647.5364+547.1482,29108+299.9249+236.0146+679.0945+595.2179+647.5364+547.148+523.2495,29108+299.9249+236.0146+679.0945+595.2179+647.5364+547.148+523.2495+544.4187,29108+299.9249+236.0146+679.0945+595.2179+647.5364+547.148+523.2495+544.418+585.4392),start=27.85714,fr=7)
+
+
+actualincases12 <- ts(c(28701,28498,29429,32695,34956,34884,38902,40425
+),start=27.85714,frequency=7)
+
+ts.plot(actualincases12,incasesprednew,col=c("red","blue"),lty = 1:2,ylab= 'Positive cases',main='INDIA covid-19 cases from 12 July to 19th July 2020 by vars() ')
+
+indeathprednew <- ts(c( 551+7.6929392+ 52.8506576 +19.3150536,551+7.6929392+ 52.8506576 -15.6434041+19.3150536,   551+7.6929392+ 52.8506576 -15.6434041+19.3150536+0.6286506,551+7.6929392+ 52.8506576 -15.6434041+19.3150536+0.6286506+15.0080100,551+7.6929392+ 52.8506576 -15.6434041+19.3150536+0.6286506+15.0080100+13.2955839,551+7.6929392+ 52.8506576 -15.6434041+19.3150536+0.6286506+15.0080100+13.2955839  +8.401331,551+7.6929392+ 52.8506576 -15.6434041+19.3150536+0.6286506+15.0080100+13.2955839  +8.401331+9.1749420),start=28,frequency=7)
+
+actualindeath12 <- ts(c(553,582,606,687,671,543,681),start=28,frequency=7)
+
+ts.plot(actualindeath12,indeathprednew,col=c("red","blue"),lty = 1:2,ylab= 'Deaths',main='INIDA covid-19 deaths from 13th to 19th July 2020 ')
+
+ts.plot(cbind(window(deathin, start = 11), indeathprednew),col=c("red","blue"), lty = 1:2,ylab= 'Deaths',main='INDIA covid-19 deaths from 16th Mar to 19th July 2020 ',xlab='weeks')
+
+mpe(actualindeath12,indeathprednew)
+
+```
+
+
+#Deaths 
+```{r}
+Time <- time(deathin)
+Seas = factor(cycle(deathin))
+length(casesin)
+length(Time)
+length(deathin)
+deathin.lmts <- lm(deathin ~ 0+Time+Seas)
+summary(deathin.lmts)
+AIC(deathin.lmts)
+acf(resid(deathin.lmts))[1]
+pacf(resid(deathin.lmts))
+new.timein <- seq(28, len = 7, by = 1/7)
+
+alpha2 <- coef(deathin.lmts)[1]
+
+
+beta1 <- coef(deathin.lmts)[2]
+beta2 <- coef(deathin.lmts)[3]
+beta3 <- coef(deathin.lmts)[4]
+beta4 <- coef(deathin.lmts)[5]
+beta5 <- coef(deathin.lmts)[6]
+beta6 <- coef(deathin.lmts)[7]
+beta7 <- coef(deathin.lmts)[8]
+forc20191 <-  alpha2*new.Time[1] + beta1
+forc20192 <-  alpha2*new.Time[2] + beta2
+forc20193 <-  alpha2*new.Time[3] + beta3
+forc20194 <- alpha2*new.Time[4] + beta4
+forc20195 <- alpha2*new.Time[5] + beta5
+forc20196 <- alpha2*new.Time[6] + beta6
+forc20197 <- alpha2*new.Time[7] + beta7
+
+indeathforc <-  ts(c(forc20191,forc20192,forc20193,forc20194,forc20195,forc20196,forc20197),start=28,fr=7)
+actualindeath12 <- ts(c(553,582,606,687,671,543,681),start=28,frequency=7)
+
+
+ts.plot(actualindeath12,indeathforc,col=c("red","blue"),lty = 1:2,ylab= 'Deaths',main='INIDA covid-19 deaths from 13th to 19th July 2020 ')
+
+ts.plot(cbind(window(deathin, start = 11), indeathforc),col=c("red","blue"), lty = 1:2,ylab= 'Deaths',main='INDIA covid-19 deaths from 16th Mar to 19th July 2020 ',xlab='weeks')
+
+mpe(actualindeath12,indeathforc)
+
+
+
+
+casesin.ar <- ar(casesin, FUN = mean, method = "mle")
+casesin.ar <- ar(casesin, method = "mle")
+
+acf(na.omit(casesin.ar$resid))
+pacf(na.omit(casesin.ar$resid))
+
+predict(casesin.ar, n.ahead=7)
+actualincases <- ts(c(28701,28498,29429,32695,34956,34884,38902),start=28,frequency=7)
+
+```
+
+
+```{r}
+
+deathin.ar <- ar(deathin, FUN = mean, method = "mle")
+deathin.ar <- ar(deathin, method = "mle")
+deathin.ar
+acf(na.omit(deathin.ar$resid))
+pacf(na.omit(deathin.ar$resid))
+
+prednew<- predict(deathin.ar, n.ahead=7)
+
+actualindeath12 <- ts(c(553,582,606,687,671,543,681),start=28,frequency=7)
+mpe(actualindeath12,prednew$pred)
+
+```
+
+```{r}
+model.arma <- auto.arima(deathin, ic="aic")
+model.arma
+acf(resid(model.arma))
+pacf(resid(model.arma))
+
+new.time <- seq(length(deathin), length = 7)
+new.data <- data.frame(Time = new.time, Imth = 1:7)
+
+
+arma<-arima(deathin, order=c(0,1,1), include.mean = FALSE)
+arma
+predict(arma,7)
+
+```
