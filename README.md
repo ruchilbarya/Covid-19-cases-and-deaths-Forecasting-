@@ -5,7 +5,7 @@ The objective of this study to predict number of Covid-19 cases and deaths for I
 
 ## Summary
 
-As per the forecast for the USA covid-19, the cases are like to increase gradually and deaths will also increase with some dropAs per the forecast for the India covid-19, the cases are like to increase exponentially and deaths will also increase but the Indian forecasts were increasing on a steady rate , while USA forecast had lots of ups and downs. Forecasted model for the number of cases had good accuracy and AIC for both India and USA. The relationship between the deaths and cases was not significant for India but it was significant for USA.The relationship between the India and USA cases was not significant. 
+As per the forecast , the cases are like to increase gradually and deaths will also increase in USA with some drops.For India covid-19, the cases are like to increase exponentially and deaths will also increase but the Indian forecasts were increasing on a steady rate, while USA forecast had lots of ups and downs. The relationship between the deaths and cases was not significant for India but it was significant for USA.The relationship between the covid-19 cases of India and USA was also not significant. 
 
 The model consists of three main componenets 
 * Time series creation with weekly frequency
