@@ -1,5 +1,5 @@
 ---
-title: "Research Project ANLY 565"
+title: "Research Project"
 output:
   html_document:
     df_print: paged
