@@ -14,7 +14,7 @@ The model consists of three main componenets
 
 ## Data 
 
-The dataset for confirmed Covid-19 cases and deaths in USA was obtained from [‘Kaggle’](https://www.kaggle.com/sudalairajkumar/novel-corona-virus-2019-dataset) and in India was obtained from ‘Covid19India' dashboard. There are two different datasets for India and USA. The dataset includes Covid-19 cases and deaths from 22 January 2020 to 19 July 2020.
+The dataset for confirmed Covid-19 cases and deaths in USA was obtained from [Kaggle](https://www.kaggle.com/sudalairajkumar/novel-corona-virus-2019-dataset) and in India was obtained from ‘Covid19India' dashboard. There are two different datasets for India and USA. The dataset includes Covid-19 cases and deaths from 22 January 2020 to 19 July 2020.
 
 ## Methodology 
 
